@@ -1,18 +1,21 @@
 # 高醫即時醫療資訊查詢系統
 
-一個整合 RAG (Retrieval-Augmented Generation) 醫師資料庫檢索與 Web Search 即時資訊查詢的智能醫療資訊系統。
+一個整合 **雙重 RAG** (關鍵字 + 向量檢索) 醫師資料庫與 Web Search 即時資訊查詢的智能醫療資訊系統。
 
 ## 🎯 系統特色
 
-### 🔍 分層整合架構
-- **RAG 醫師檢索**: 基於本地醫師資料庫的智能檢索
+### 🔍 雙重 RAG 架構
+- **關鍵字 RAG**: 基於精確關鍵字匹配的醫師檢索
+- **向量 RAG**: 基於 bge-m3 語義向量的智能檢索
+- **智能融合**: 優先使用向量檢索，關鍵字檢索作為備用
 - **Web Search**: 即時網路資訊搜尋
 - **AI 整合**: GPT-4o 智能分析與回答生成
 
 ### 👨‍⚕️ 醫師資料庫
 - 8 位心臟血管內科醫師完整資料
 - 包含專長、職稱、經歷、學歷、證照等詳細資訊
-- 智能關鍵字匹配與相關度排序
+- **雙重檢索**: 關鍵字匹配 + 語義向量檢索
+- **智能排序**: 基於相關度的智能排序
 
 ### 🏥 即時資訊查詢
 - 高醫即時叫號進度查詢
@@ -32,12 +35,25 @@ SERPER_API_KEY=your_serper_api_key_here
 SCRAPING_BEE_KEY=your_scraping_bee_key_here
 ```
 
-### 2. 啟動系統
+### 2. 建立向量資料庫 (首次使用)
+```bash
+# 建立 Python 虛擬環境
+python -m venv venv
+venv\Scripts\activate
+
+# 安裝必要套件
+pip install chromadb sentence-transformers
+
+# 建立向量資料庫
+python test_vector_rag.py
+```
+
+### 3. 啟動系統
 ```bash
 npm run dev
 ```
 
-### 3. 訪問系統
+### 4. 訪問系統
 - 前端: http://localhost:3000
 - 後端: http://localhost:3001
 - 健康檢查: http://localhost:3001/health
@@ -49,6 +65,8 @@ npm run dev
 高醫朱志生醫師的專長是什麼？
 李香君醫師的學歷和經歷
 林宗翰醫師的職稱
+心臟科醫師推薦
+糖尿病專科醫師
 ```
 
 ### 即時叫號查詢
@@ -71,23 +89,26 @@ npm run dev
 - `client/src/services/api.ts`: API 服務
 
 ### 後端 (Node.js + Express)
-- `server/services/doctorRagService.js`: 醫師 RAG 服務
+- `server/services/doctorRagService.js`: 關鍵字 RAG 服務
+- `server/services/vectorRagService.js`: 向量 RAG 服務
 - `server/services/queryService.js`: 主要查詢處理服務
 - `server/services/scrapingBeeService.js`: 即時資訊服務
 
 ### 資料庫
 - `doctors.json`: 醫師資料庫 (8 位心臟血管內科醫師)
+- `chroma_db/doctorv1/`: ChromaDB 向量資料庫
 
 ## 🔧 技術特色
 
-### RAG 系統
-- **純 JavaScript 實現**: 不依賴 Python，穩定可靠
-- **智能關鍵字匹配**: 支援姓名、科別、專長、職稱等多維度搜尋
-- **相關度排序**: 基於權重的智能排序算法
+### 雙重 RAG 系統
+- **關鍵字 RAG**: 純 JavaScript 實現，穩定可靠
+- **向量 RAG**: 基於 bge-m3 的語義檢索，理解力更強
+- **智能融合**: 優先使用向量檢索，關鍵字檢索作為備用
+- **相關度排序**: 基於相似度的智能排序算法
 - **即時載入**: 動態載入醫師資料庫
 
 ### Web Search 整合
-- **並行處理**: RAG 檢索與 Web 搜尋同時執行
+- **並行處理**: 雙重 RAG 檢索與 Web 搜尋同時執行
 - **智能路由**: 根據查詢類型選擇最佳資料來源
 - **錯誤處理**: 優雅的降級機制
 - **結果融合**: GPT-4o 智能整合多來源資訊
@@ -102,7 +123,12 @@ npm run dev
 
 ### 完整系統測試
 ```bash
-node test_rag_web_integration.js
+node test_integrated_vector_system.js
+```
+
+### 向量 RAG 測試
+```bash
+python test_vector_rag.py "心臟科醫師"
 ```
 
 ### 單一查詢測試
@@ -111,7 +137,8 @@ node test_rag_web_integration.js "高醫朱志生醫師的專長是什麼？"
 ```
 
 ### 測試覆蓋範圍
-- ✅ RAG 醫師檢索功能
+- ✅ 關鍵字 RAG 醫師檢索功能
+- ✅ 向量 RAG 語義檢索功能
 - ✅ Web Search 網路搜尋
 - ✅ 即時資訊查詢
 - ✅ AI 整合回答生成
@@ -147,8 +174,11 @@ node test_rag_web_integration.js "高醫朱志生醫師的專長是什麼？"
 使用者查詢
     ↓
 並行處理
-├── RAG 檢索 (醫師資料庫)
+├── 關鍵字 RAG 檢索 (醫師資料庫)
+├── 向量 RAG 檢索 (語義檢索)
 └── Web Search (網路搜尋)
+    ↓
+智能結果融合
     ↓
 即時資訊檢查
     ↓
@@ -162,15 +192,25 @@ GPT-4o 整合分析
 ### 新增醫師資料
 1. 編輯 `doctors.json`
 2. 按照現有格式新增醫師資訊
-3. 重新啟動服務器
+3. 重新建立向量資料庫: `python test_vector_rag.py`
+4. 重新啟動服務器
 
 ### 修改 RAG 權重
-編輯 `server/services/doctorRagService.js` 中的 `keywordWeights` 配置
+- 關鍵字 RAG: 編輯 `server/services/doctorRagService.js` 中的 `keywordWeights` 配置
+- 向量 RAG: 調整 `test_vector_rag.py` 中的相似度閾值
 
 ### 調整 AI 回答
 修改 `server/services/queryService.js` 中的 `createIntegratedPrompt` 方法
 
 ## 📝 更新日誌
+
+### v3.0.0 - 雙重 RAG 整合版
+- ✅ 新增向量 RAG 系統 (bge-m3)
+- ✅ 實現雙重 RAG 架構 (關鍵字 + 向量)
+- ✅ 智能結果融合機制
+- ✅ 優化語義檢索能力
+- ✅ 新增向量資料庫持久化
+- ✅ 完善測試套件
 
 ### v2.0.0 - RAG + Web Search 整合版
 - ✅ 新增醫師 RAG 檢索系統

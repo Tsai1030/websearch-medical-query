@@ -2,6 +2,7 @@ const axios = require('axios');
 const OpenAI = require('openai');
 const ScrapingBeeService = require('./scrapingBeeService');
 const DoctorRAGService = require('./doctorRagService');
+const VectorRAGService = require('./vectorRagService');
 
 // 檢查環境變數
 if (!process.env.OPENAI_API_KEY) {
@@ -10,15 +11,14 @@ if (!process.env.OPENAI_API_KEY) {
   console.error('範例：OPENAI_API_KEY=sk-your-api-key-here');
 }
 
-if (!process.env.SERPER_API_KEY) {
-  console.error('❌ 錯誤：SERPER_API_KEY 環境變數未設定');
-  console.error('請在 server/.env 檔案中設定您的 Serper API 金鑰');
-  console.error('範例：SERPER_API_KEY=your-serper-api-key-here');
-}
-
 if (!process.env.SCRAPING_BEE_KEY) {
   console.warn('⚠️ 警告：SCRAPING_BEE_KEY 環境變數未設定');
   console.warn('動態網頁搜尋功能將被停用');
+}
+
+if (!process.env.SERPER_API_KEY) {
+  console.warn('⚠️ 警告：SERPER_API_KEY 環境變數未設定');
+  console.warn('Google 搜尋功能將被停用，將使用 ScrapingBee 作為備用');
 }
 
 // 初始化 OpenAI
@@ -36,7 +36,8 @@ class SerperSearchService {
   async search(query) {
     try {
       if (!this.apiKey) {
-        throw new Error('Serper API key 未設定，請在 server/.env 檔案中設定 SERPER_API_KEY');
+        console.log('⚠️ Serper API key 未設定，跳過 Google 搜尋');
+        return { organic: [], totalResults: 0 };
       }
 
       console.log(`🔍 執行 Google 搜尋: ${query}`);
@@ -57,7 +58,8 @@ class SerperSearchService {
       return response.data;
     } catch (error) {
       console.error('Serper 搜尋錯誤:', error.message);
-      throw new Error(`搜尋服務錯誤: ${error.message}`);
+      // 返回空結果而不是拋出錯誤
+      return { organic: [], totalResults: 0 };
     }
   }
 }
@@ -167,28 +169,37 @@ class MedicalQueryService {
     this.analysisService = new IntegratedGPTAnalysisService();
     this.scrapingBeeService = new ScrapingBeeService();
     this.ragService = new DoctorRAGService();
+    this.vectorRagService = new VectorRAGService();
   }
 
   async processMedicalQuery(query) {
     try {
       console.log(`📝 開始處理查詢: ${query}`);
 
-      // 1. 並行執行 RAG 檢索和 Web 搜尋
-      console.log('🔍 步驟 1: 並行執行 RAG 檢索和 Web 搜尋...');
+      // 1. 並行執行三種檢索：關鍵字 RAG、向量 RAG 和 Web 搜尋
+      console.log('🔍 步驟 1: 並行執行關鍵字 RAG、向量 RAG 和 Web 搜尋...');
       
-      const [ragResults, searchResults] = await Promise.allSettled([
+      const [keywordRagResults, vectorRagResults, searchResults] = await Promise.allSettled([
         this.ragService.searchDoctors(query),
+        this.vectorRagService.searchDoctors(query),
         this.searchService.search(this.optimizeSearchQuery(query))
       ]);
 
-      // 處理 RAG 結果
-      const ragData = ragResults.status === 'fulfilled' ? ragResults.value : { success: false, results: [], count: 0 };
+      // 處理關鍵字 RAG 結果
+      const keywordRagData = keywordRagResults.status === 'fulfilled' ? keywordRagResults.value : { success: false, results: [], count: 0 };
+      
+      // 處理向量 RAG 結果
+      const vectorRagData = vectorRagResults.status === 'fulfilled' ? vectorRagResults.value : { success: false, results: [], count: 0 };
       
       // 處理搜尋結果
       const searchData = searchResults.status === 'fulfilled' ? searchResults.value : { organic: [], totalResults: 0 };
       
-      // 2. 檢查是否需要即時資訊
-      console.log('🔍 步驟 2: 檢查即時資訊...');
+      // 2. 合併 RAG 結果（優先使用向量檢索結果）
+      console.log('🔍 步驟 2: 合併 RAG 結果...');
+      const mergedRagData = this.mergeRagResults(keywordRagData, vectorRagData);
+      
+      // 3. 檢查是否需要即時資訊
+      console.log('🔍 步驟 3: 檢查即時資訊...');
       const hybridResult = await this.scrapingBeeService.hybridSearch(query, searchData);
       
       let response;
@@ -211,16 +222,18 @@ class MedicalQueryService {
         };
       }
 
-      // 3. 使用 GPT 整合所有結果
-      console.log('🤖 步驟 3: 使用 GPT 整合結果...');
-      response = await this.analysisService.analyzeQuery(query, ragData, finalSearchResults);
+      // 4. 使用 GPT 整合所有結果
+      console.log('🤖 步驟 4: 使用 GPT 整合結果...');
+      response = await this.analysisService.analyzeQuery(query, mergedRagData, finalSearchResults);
 
       console.log(`✅ 查詢處理完成`);
 
       return {
         response,
         searchResults: finalSearchResults,
-        ragResults: ragData,
+        ragResults: mergedRagData,
+        keywordRagResults: keywordRagData,
+        vectorRagResults: vectorRagData,
         dataSource: hybridResult.type
       };
 
@@ -228,6 +241,39 @@ class MedicalQueryService {
       console.error('查詢處理失敗:', error);
       throw error;
     }
+  }
+
+  // 合併關鍵字 RAG 和向量 RAG 結果
+  mergeRagResults(keywordRagData, vectorRagData) {
+    const mergedResults = {
+      success: false,
+      results: [],
+      count: 0,
+      methods: []
+    };
+
+    // 優先使用向量檢索結果（如果成功）
+    if (vectorRagData.success && vectorRagData.count > 0) {
+      mergedResults.success = true;
+      mergedResults.results = vectorRagData.results;
+      mergedResults.count = vectorRagData.count;
+      mergedResults.methods.push('vector');
+      console.log(`✅ 使用向量 RAG 結果: ${vectorRagData.count} 位醫師`);
+    }
+    // 如果向量檢索失敗，使用關鍵字檢索結果
+    else if (keywordRagData.success && keywordRagData.count > 0) {
+      mergedResults.success = true;
+      mergedResults.results = keywordRagData.results;
+      mergedResults.count = keywordRagData.count;
+      mergedResults.methods.push('keyword');
+      console.log(`✅ 使用關鍵字 RAG 結果: ${keywordRagData.count} 位醫師`);
+    }
+    // 如果兩種方法都失敗
+    else {
+      console.log('❌ 兩種 RAG 方法都未找到相關醫師');
+    }
+
+    return mergedResults;
   }
 
   // 格式化即時資訊回應
