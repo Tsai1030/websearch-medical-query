@@ -1,6 +1,7 @@
 const axios = require('axios');
 const OpenAI = require('openai');
 const ScrapingBeeService = require('./scrapingBeeService');
+const DoctorRAGService = require('./doctorRagService');
 
 // 檢查環境變數
 if (!process.env.OPENAI_API_KEY) {
@@ -61,50 +62,32 @@ class SerperSearchService {
   }
 }
 
-// GPT-4o 分析服務
-class GPTAnalysisService {
-  async analyzeQuery(query, searchResults) {
+// 整合 GPT 分析服務
+class IntegratedGPTAnalysisService {
+  async analyzeQuery(query, ragResults, searchResults) {
     try {
       if (!process.env.OPENAI_API_KEY) {
         throw new Error('OpenAI API key 未設定，請在 server/.env 檔案中設定 OPENAI_API_KEY');
       }
 
-      console.log('🤖 使用 GPT-4o 分析搜尋結果');
+      console.log('🤖 使用 GPT-4o 分析整合結果');
 
-      // 準備搜尋結果摘要
-      const searchSummary = this.prepareSearchSummary(searchResults);
-
-      const prompt = `你是一個專業的醫療資訊查詢助手。請根據以下搜尋結果，回答使用者的醫療相關問題。
-
-使用者問題: "${query}"
-
-搜尋結果摘要:
-${searchSummary}
-
-請根據搜尋結果提供準確、有用的回答。如果搜尋結果中沒有相關資訊，請誠實告知無法找到相關資訊。
-
-回答要求:
-1. 使用繁體中文回答
-2. 回答要簡潔明瞭
-3. 如果涉及醫院叫號資訊，請特別標註時間
-4. 如果沒有找到相關資訊，請建議其他查詢方式
-5. 回答長度控制在 200 字以內
-
-請直接回答，不要包含任何前綴或格式說明。`;
+      // 建立整合的 prompt
+      const prompt = this.createIntegratedPrompt(query, ragResults, searchResults);
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: "你是一個專業的醫療資訊查詢助手，專門協助使用者查詢醫院相關資訊。"
+            content: "您是一個專業的醫療資訊查詢助手，專門協助使用者查詢醫院相關資訊和醫師推薦。"
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        max_tokens: 500,
+        max_tokens: 800,
         temperature: 0.3
       });
 
@@ -115,21 +98,65 @@ ${searchSummary}
     }
   }
 
-  prepareSearchSummary(searchResults) {
-    if (!searchResults || !searchResults.organic) {
-      return '未找到相關搜尋結果';
+  // 建立整合的 prompt
+  createIntegratedPrompt(query, ragResults, searchResults) {
+    let prompt = `您是一個專業的醫療資訊查詢助手。請根據以下資訊回答使用者的問題。
+
+使用者問題: "${query}"
+
+`;
+
+    // 如果有醫師資訊，優先顯示
+    if (ragResults && ragResults.success && ragResults.count > 0) {
+      prompt += `相關醫師資訊:
+${ragResults.results.map((doctor, index) => 
+  `${index + 1}. ${doctor.name} - ${doctor.department}
+   專長: ${doctor.specialty ? doctor.specialty.join(', ') : '無資料'}
+   職稱: ${doctor.title ? doctor.title[0] : '無資料'}
+   相關度: ${doctor.relevance.toFixed(3)}`
+).join('\n\n')}
+
+`;
     }
 
-    let summary = '';
-    const organicResults = searchResults.organic.slice(0, 5); // 只取前 5 個結果
+    // 如果有即時資訊，顯示叫號進度
+    if (searchResults && searchResults.realTimeData) {
+      const realTimeData = searchResults.realTimeData;
+      prompt += `即時叫號資訊:
+- 醫院: ${realTimeData.hospital || '高醫'}
+- 科別: ${realTimeData.department || '無法取得'}
+- 醫師: ${realTimeData.doctor || '無法取得'}
+- 當前號碼: ${realTimeData.currentNumber || '無法取得'}
+- 更新時間: ${realTimeData.timestamp ? new Date(realTimeData.timestamp).toLocaleString('zh-TW') : '無法取得'}
 
-    organicResults.forEach((result, index) => {
-      summary += `${index + 1}. ${result.title}\n`;
-      summary += `   網址: ${result.link}\n`;
-      summary += `   摘要: ${result.snippet || '無摘要'}\n\n`;
-    });
+`;
+    }
 
-    return summary;
+    // 如果有網路搜尋結果，也加入
+    if (searchResults && searchResults.organic && searchResults.organic.length > 0) {
+      prompt += `網路搜尋結果:
+${searchResults.organic.slice(0, 3).map((result, index) => 
+  `${index + 1}. ${result.title}
+   摘要: ${result.snippet || '無摘要'}`
+).join('\n\n')}
+
+`;
+    }
+
+    prompt += `請根據以上資訊提供準確、有用的回答。
+
+回答要求:
+1. 使用繁體中文回答
+2. 如果有醫師資訊，請詳細介紹醫師背景和專長
+3. 如果有即時叫號資訊，請優先回答叫號進度
+4. 結合網路搜尋結果提供完整資訊
+5. 回答要簡潔明瞭，結構清晰
+6. 如果涉及醫院叫號資訊，請特別標註時間
+7. 回答長度控制在 400 字以內
+
+請直接回答，不要包含任何前綴或格式說明。`;
+
+    return prompt;
   }
 }
 
@@ -137,48 +164,63 @@ ${searchSummary}
 class MedicalQueryService {
   constructor() {
     this.searchService = new SerperSearchService();
-    this.analysisService = new GPTAnalysisService();
+    this.analysisService = new IntegratedGPTAnalysisService();
     this.scrapingBeeService = new ScrapingBeeService();
+    this.ragService = new DoctorRAGService();
   }
 
   async processMedicalQuery(query) {
     try {
       console.log(`📝 開始處理查詢: ${query}`);
 
-      // 1. 先嘗試動態搜尋
-      const optimizedQuery = this.optimizeSearchQuery(query);
-      const searchResults = await this.searchService.search(optimizedQuery);
+      // 1. 並行執行 RAG 檢索和 Web 搜尋
+      console.log('🔍 步驟 1: 並行執行 RAG 檢索和 Web 搜尋...');
+      
+      const [ragResults, searchResults] = await Promise.allSettled([
+        this.ragService.searchDoctors(query),
+        this.searchService.search(this.optimizeSearchQuery(query))
+      ]);
+
+      // 處理 RAG 結果
+      const ragData = ragResults.status === 'fulfilled' ? ragResults.value : { success: false, results: [], count: 0 };
+      
+      // 處理搜尋結果
+      const searchData = searchResults.status === 'fulfilled' ? searchResults.value : { organic: [], totalResults: 0 };
       
       // 2. 檢查是否需要即時資訊
-      const hybridResult = await this.scrapingBeeService.hybridSearch(query, searchResults);
+      console.log('🔍 步驟 2: 檢查即時資訊...');
+      const hybridResult = await this.scrapingBeeService.hybridSearch(query, searchData);
       
       let response;
       let finalSearchResults;
 
       if (hybridResult.type === 'real-time') {
-        // 有即時資訊，直接使用
-        console.log('✅ 使用即時資訊');
-        response = this.formatRealTimeResponse(hybridResult.data);
+        // 有即時資訊，整合 RAG 結果
+        console.log('✅ 使用即時資訊 + RAG 結果');
         finalSearchResults = {
           organic: [],
           totalResults: 0,
           realTimeData: hybridResult.data
         };
       } else {
-        // 使用 Google 搜尋結果
-        console.log('使用 Google 搜尋結果');
-        response = await this.analysisService.analyzeQuery(query, searchResults);
+        // 使用 Google 搜尋結果 + RAG 結果
+        console.log('✅ 使用 Google 搜尋結果 + RAG 結果');
         finalSearchResults = {
-          organic: searchResults.organic?.slice(0, 3) || [],
-          totalResults: searchResults.searchInformation?.totalResults || 0
+          organic: searchData.organic?.slice(0, 3) || [],
+          totalResults: searchData.searchInformation?.totalResults || 0
         };
       }
+
+      // 3. 使用 GPT 整合所有結果
+      console.log('🤖 步驟 3: 使用 GPT 整合結果...');
+      response = await this.analysisService.analyzeQuery(query, ragData, finalSearchResults);
 
       console.log(`✅ 查詢處理完成`);
 
       return {
         response,
         searchResults: finalSearchResults,
+        ragResults: ragData,
         dataSource: hybridResult.type
       };
 
@@ -220,32 +262,21 @@ ${timeStr ? timeStr + '\n' : ''}
       optimizedQuery += ' 即時叫號 門診進度';
     }
 
-    // 如果是急診查詢
-    if (userQuery.includes('急診')) {
-      optimizedQuery += ' 急診室 等待時間';
-    }
-
-    // 確保包含醫院名稱
-    if (userQuery.includes('高醫')) {
-      optimizedQuery = optimizedQuery.replace('高醫', '高雄醫學大學附設醫院');
+    // 如果是醫師查詢，加入醫院名稱
+    if (userQuery.includes('醫師') && !userQuery.includes('高醫')) {
+      optimizedQuery += ' 高雄醫學大學附設醫院';
     }
 
     return optimizedQuery;
   }
 }
 
-// 建立服務實例
+// 導出服務實例
 const medicalQueryService = new MedicalQueryService();
 
-// 匯出主要函數
+// 導出處理函數
 async function processMedicalQuery(query) {
   return await medicalQueryService.processMedicalQuery(query);
 }
 
-module.exports = {
-  processMedicalQuery,
-  MedicalQueryService,
-  SerperSearchService,
-  GPTAnalysisService,
-  ScrapingBeeService
-};
+module.exports = { MedicalQueryService, processMedicalQuery };

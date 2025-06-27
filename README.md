@@ -1,169 +1,194 @@
-# 即時醫療資訊查詢系統
+# 高醫即時醫療資訊查詢系統
 
-這是一個結合 Google 搜尋和 GPT-4o 的即時醫療資訊查詢系統，讓使用者能夠透過自然語言查詢醫院即時資訊。
+一個整合 RAG (Retrieval-Augmented Generation) 醫師資料庫檢索與 Web Search 即時資訊查詢的智能醫療資訊系統。
 
-## 功能特色
+## 🎯 系統特色
 
-- 🔍 **即時搜尋**: 透過 Serper API 即時搜尋 Google 獲取最新醫療資訊
-- 🤖 **AI 解析**: 使用 GPT-4o 解析搜尋結果並提供自然語言回應
-- 💬 **自然語言查詢**: 支援中文自然語言查詢，如「今天高醫心臟內科看到幾號？」
-- ⚡ **即時回應**: 無需資料庫，完全依賴網路即時資訊
-- 🎨 **現代化 UI**: 簡潔美觀的 React 前端介面
+### 🔍 分層整合架構
+- **RAG 醫師檢索**: 基於本地醫師資料庫的智能檢索
+- **Web Search**: 即時網路資訊搜尋
+- **AI 整合**: GPT-4o 智能分析與回答生成
 
-## 使用範例
+### 👨‍⚕️ 醫師資料庫
+- 8 位心臟血管內科醫師完整資料
+- 包含專長、職稱、經歷、學歷、證照等詳細資訊
+- 智能關鍵字匹配與相關度排序
 
-**查詢範例:**
-- "今天高醫心臟內科看到幾號？"
-- "高醫急診室現在人多嗎？"
-- "高醫門診時間表"
-
-**回應範例:**
-- "目前高醫心臟內科已看到第 36 號，下一位為第 37 號，請攜帶健保卡提前報到。"
-
-## 技術架構
-
-- **前端**: React + TypeScript + Tailwind CSS
-- **後端**: Node.js + Express
-- **搜尋 API**: Serper API (Google 搜尋)
-- **AI 模型**: OpenAI GPT-4o
-- **開發工具**: Vite, nodemon
+### 🏥 即時資訊查詢
+- 高醫即時叫號進度查詢
+- 動態網頁內容抓取
+- 智能錯誤處理與重試機制
 
 ## 🚀 快速開始
 
-### 1. 系統需求
-- Node.js 18+ 
-- npm 或 yarn
-- OpenAI API Key
-- Serper API Key
-
-### 2. 取得 API 金鑰
-
-#### OpenAI API Key
-1. 前往 [OpenAI Platform](https://platform.openai.com/)
-2. 註冊/登入帳號
-3. 前往 API Keys 頁面
-4. 建立新的 API Key
-5. 複製並保存金鑰
-
-#### Serper API Key (Google 搜尋)
-1. 前往 [Serper.dev](https://serper.dev/)
-2. 註冊帳號
-3. 選擇適合的方案 (免費版每月 100 次搜尋)
-4. 取得 API Key
-
-### 3. 安裝與設定
-
-#### 方法一：使用啟動腳本 (推薦)
+### 1. 環境設定
 ```bash
-# Windows
-start.bat
-
-# Linux/Mac
-chmod +x start.sh
-./start.sh
-```
-
-#### 方法二：手動安裝
-```bash
-# 1. 安裝所有依賴
-npm run install-all
-
-# 2. 設定環境變數
-# Windows
+# 設定環境變數
 setup-env.bat
 
-# Linux/Mac
-chmod +x setup-env.sh
-./setup-env.sh
+# 編輯 server/.env 檔案，填入您的 API 金鑰
+OPENAI_API_KEY=your_openai_api_key_here
+SERPER_API_KEY=your_serper_api_key_here
+SCRAPING_BEE_KEY=your_scraping_bee_key_here
+```
 
-# 3. 編輯 server/.env 檔案，填入您的 API 金鑰
-
-# 4. 啟動開發伺服器
+### 2. 啟動系統
+```bash
 npm run dev
 ```
 
-### 4. 環境變數設定
+### 3. 訪問系統
+- 前端: http://localhost:3000
+- 後端: http://localhost:3001
+- 健康檢查: http://localhost:3001/health
 
-在 `server/.env` 檔案中設定：
+## 📋 查詢範例
 
-```env
-# OpenAI API 設定
-OPENAI_API_KEY=sk-your-openai-api-key-here
-
-# Serper API 設定 (Google 搜尋)
-SERPER_API_KEY=your-serper-api-key-here
-
-# 伺服器設定
-PORT=3001
-NODE_ENV=development
+### 醫師資訊查詢
+```
+高醫朱志生醫師的專長是什麼？
+李香君醫師的學歷和經歷
+林宗翰醫師的職稱
 ```
 
-### 5. 驗證安裝
-
-1. 開啟瀏覽器前往 http://localhost:3000
-2. 在查詢框中輸入：「今天高醫心臟內科看到幾號？」
-3. 點擊搜尋按鈕
-4. 等待系統回應
-
-## 🐛 故障排除
-
-### 常見問題
-
-#### 1. API 金鑰錯誤
+### 即時叫號查詢
 ```
-錯誤：OPENAI_API_KEY 環境變數未設定
-解決方案：執行 setup-env.bat 或 setup-env.sh，然後編輯 server/.env 檔案
+現在高醫心臟內科叫到幾號了？
+高醫心臟血管內科４診看到幾號了？
 ```
 
-#### 2. 前端啟動失敗
+### 綜合查詢
 ```
-錯誤：npm ERR! Missing script: "start"
-解決方案：已修復，重新執行 start.bat
-```
-
-#### 3. 網路連線問題
-```
-錯誤：搜尋服務錯誤
-解決方案：檢查網路連線和 Serper API 狀態
+高醫林宗翰醫師現在心臟內科叫到幾號？
+朱志生醫師的專長是什麼？現在叫到幾號？
 ```
 
-#### 4. 前端無法連線後端
-```
-錯誤：網路連線錯誤
-解決方案：確認後端伺服器在 http://localhost:3001 運行
-```
+## 🏗️ 系統架構
 
-### 測試系統
+### 前端 (React + TypeScript)
+- `client/src/App.tsx`: 主要應用程式
+- `client/src/components/`: UI 元件
+- `client/src/services/api.ts`: API 服務
+
+### 後端 (Node.js + Express)
+- `server/services/doctorRagService.js`: 醫師 RAG 服務
+- `server/services/queryService.js`: 主要查詢處理服務
+- `server/services/scrapingBeeService.js`: 即時資訊服務
+
+### 資料庫
+- `doctors.json`: 醫師資料庫 (8 位心臟血管內科醫師)
+
+## 🔧 技術特色
+
+### RAG 系統
+- **純 JavaScript 實現**: 不依賴 Python，穩定可靠
+- **智能關鍵字匹配**: 支援姓名、科別、專長、職稱等多維度搜尋
+- **相關度排序**: 基於權重的智能排序算法
+- **即時載入**: 動態載入醫師資料庫
+
+### Web Search 整合
+- **並行處理**: RAG 檢索與 Web 搜尋同時執行
+- **智能路由**: 根據查詢類型選擇最佳資料來源
+- **錯誤處理**: 優雅的降級機制
+- **結果融合**: GPT-4o 智能整合多來源資訊
+
+### 即時資訊服務
+- **重試機制**: 最多 3 次重試，提高成功率
+- **多種解析策略**: HTML 結構解析 + 內容分析
+- **超時控制**: 45 秒超時，避免長時間等待
+- **模擬資料**: 當無法取得即時資料時的備用方案
+
+## 🧪 測試
+
+### 完整系統測試
 ```bash
-# 測試 API 功能
-node test-query.js
+node test_rag_web_integration.js
 ```
 
-## API 端點
-
-- `POST /api/query` - 處理醫療資訊查詢
-- `GET /health` - 健康檢查
-
-## 專案結構
-
-```
-medical-info-query-system/
-├── client/                 # React 前端
-│   ├── src/
-│   │   ├── components/     # React 元件
-│   │   ├── types/         # TypeScript 型別定義
-│   │   └── App.tsx        # 主應用程式
-├── server/                 # Node.js 後端
-│   ├── routes/            # API 路由
-│   ├── services/          # 業務邏輯服務
-│   └── index.js           # 伺服器入口
-├── package.json
-└── README.md
+### 單一查詢測試
+```bash
+node test_rag_web_integration.js "高醫朱志生醫師的專長是什麼？"
 ```
 
-## 注意事項
+### 測試覆蓋範圍
+- ✅ RAG 醫師檢索功能
+- ✅ Web Search 網路搜尋
+- ✅ 即時資訊查詢
+- ✅ AI 整合回答生成
+- ✅ 錯誤處理與降級
 
-- 需要有效的 OpenAI API Key 和 Serper API Key
-- 系統完全依賴網路即時資訊，不儲存任何資料
-- 建議用於小型專案或概念驗證
-- 本系統僅供參考，不構成醫療建議 
+## 📊 醫師資料庫
+
+### 心臟血管內科醫師 (8 位)
+1. **林宗翰**: 重症加護醫學、心律不整治療
+2. **盧怡旭**: 循環學、重症照護、高血壓
+3. **林宗憲**: 高血壓、心絞痛、心肌梗塞、心衰竭
+4. **朱志生**: 心臟電氣生理學、介入性心導管治療
+5. **李香君**: 高血壓、心衰竭、心肌梗塞、冠狀動脈疾病
+6. **林新進**: 高血壓、高血脂、心絞痛、心肌梗塞
+7. **朱俊源**: 高血壓、高血脂、心絞痛、心肌梗塞
+
+### 資料結構
+```json
+{
+  "name": "醫師姓名",
+  "department": "科別",
+  "specialty": ["專長1", "專長2"],
+  "title": ["職稱1", "職稱2"],
+  "experience": ["經歷1", "經歷2"],
+  "education": ["學歷1", "學歷2"],
+  "certifications": ["證照1", "證照2"]
+}
+```
+
+## 🔍 查詢處理流程
+
+```
+使用者查詢
+    ↓
+並行處理
+├── RAG 檢索 (醫師資料庫)
+└── Web Search (網路搜尋)
+    ↓
+即時資訊檢查
+    ↓
+GPT-4o 整合分析
+    ↓
+智能回答生成
+```
+
+## 🛠️ 開發指南
+
+### 新增醫師資料
+1. 編輯 `doctors.json`
+2. 按照現有格式新增醫師資訊
+3. 重新啟動服務器
+
+### 修改 RAG 權重
+編輯 `server/services/doctorRagService.js` 中的 `keywordWeights` 配置
+
+### 調整 AI 回答
+修改 `server/services/queryService.js` 中的 `createIntegratedPrompt` 方法
+
+## 📝 更新日誌
+
+### v2.0.0 - RAG + Web Search 整合版
+- ✅ 新增醫師 RAG 檢索系統
+- ✅ 實現分層整合架構
+- ✅ 優化即時資訊服務
+- ✅ 改善 AI 回答品質
+- ✅ 新增完整測試套件
+
+### v1.1.0 - 穩定版
+- ✅ 基本醫療資訊搜尋
+- ✅ 高醫即時叫號查詢
+- ✅ Google 搜尋整合
+- ✅ GPT-4o AI 分析
+
+## 🤝 貢獻
+
+歡迎提交 Issue 和 Pull Request！
+
+## 📄 授權
+
+MIT License 
