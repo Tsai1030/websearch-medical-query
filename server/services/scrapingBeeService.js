@@ -137,185 +137,44 @@ class ScrapingBeeService {
 
   // 獲取醫院即時叫號資訊
   async getHospitalQueueInfo(hospital, query) {
-    // 更新醫院叫號系統網址和選擇器
-    const hospitalConfigs = {
-      '高醫': {
-        url: 'https://www.kmuh.org.tw/Web/WebRegistration/OPDSeq/ProcessMain?lang=tw',
-        fallbackUrls: [
-          'https://www.kmuh.org.tw/Web/WebRegistration/DocIntro/Intro?lang=tw',
-        ],
-        // 更廣泛的選擇器，包含可能的叫號元素
-        selectors: {
-          currentNumber: '.current-number, .queue-current, .number-current, #currentNumber, .current, .now, [class*="current"], [class*="number"], [id*="current"], [id*="number"]',
-          nextNumber: '.next-number, .queue-next, .number-next, #nextNumber, .next, .waiting, [class*="next"], [class*="wait"]',
-          department: '.department-name, .dept-name, .clinic-name, .clinic, .dept, [class*="dept"], [class*="clinic"]'
-        }
-      },
-      '台大': {
-        url: 'https://www.ntuh.gov.tw/',
-        fallbackUrls: [
-          'https://www.ntuh.gov.tw/OPD/',
-          'https://www.ntuh.gov.tw/patient/'
-        ],
-        selectors: {
-          currentNumber: '.queue-current, .current-number, #currentNumber, .current, [class*="current"], [class*="number"]',
-          nextNumber: '.queue-next, .next-number, #nextNumber, .next, [class*="next"]'
-        }
-      }
-    };
-
-    const config = hospitalConfigs[hospital];
-    if (!config) {
-      throw new Error(`不支援的醫院: ${hospital}`);
+    // 只支援高醫
+    if (hospital !== '高醫') {
+      throw new Error('目前僅支援高醫即時掛號查詢');
     }
-
+    const url = 'https://www.kmuh.org.tw/Web/WebRegistration/OPDSeq/ProcessMain?lang=tw';
     if (!this.apiKey) {
       throw new Error('ScrapingBee API key 未設定');
     }
-
-    // 嘗試多個網址
-    const urlsToTry = [config.url, ...config.fallbackUrls];
-    
-    if (hospital === '高醫') {
-      // 1. 解析科別
+    try {
+      const response = await axios.get(this.baseURL, {
+        params: {
+          api_key: this.apiKey,
+          url: url,
+          render_js: true,
+          wait: 8000,
+          country_code: 'tw',
+          premium_proxy: true
+        },
+        timeout: 30000
+      });
+      const html = response.data;
       const queryInfo = this.parseQueryInfo(query);
-      // 2. 解析午別
-      const noon = this.parseNoon(query);
-      // 3. 取得科別代碼
-      let deptCode = '';
-      // 支援「心臟血管內科1診」等，先抓前面科別
-      if (queryInfo.dept) {
-        // 只取科別前綴
-        const deptName = Object.keys(this.deptCodeMap).find(name => queryInfo.dept.startsWith(name));
-        if (deptName) deptCode = this.deptCodeMap[deptName];
-      }
-      // 4. 內科部直接用主頁 HTML，其餘用 POST
-      if (deptCode === '0100' || !deptCode) {
-        // 內科部或無法判斷時，走原本流程
-        const url = 'https://www.kmuh.org.tw/Web/WebRegistration/OPDSeq/ProcessMain?lang=tw';
-        try {
-          const response = await axios.get(this.baseURL, {
-            params: {
-              api_key: this.apiKey,
-              url: url,
-              render_js: true,
-              wait: 8000,
-              country_code: 'tw',
-              premium_proxy: true
-            },
-            timeout: 30000
-          });
-          const html = response.data;
-          const clinicProgress = this.extractClinicProgress(html, queryInfo);
-          if (clinicProgress) {
-            console.log('回傳 clinicProgress:', clinicProgress);
-            return {
-              hospital,
-              department: clinicProgress.dept,
-              doctor: clinicProgress.doctor,
-              currentNumber: clinicProgress.currentSeq,
-              success: true,
-              timestamp: new Date().toISOString()
-            };
-          }
-        } catch (error) {
-          console.log(`❌ 嘗試 ${url} 失敗: ${error.message}`);
-        }
-      } else {
-        // 其他科別，POST 取得 HTML
-        const postUrl = 'https://www.kmuh.org.tw/Web/WebRegistration/OPDSeq/GetSeqDetial';
-        try {
-          const response = await axios.post(this.baseURL, null, {
-            params: {
-              api_key: this.apiKey,
-              url: postUrl,
-              render_js: false,
-              country_code: 'tw',
-              premium_proxy: true
-            },
-            data: `virtualDept=${deptCode}&Noon=${noon}`,
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            timeout: 30000
-          });
-          const html = response.data;
-          const clinicProgress = this.extractClinicProgress(html, queryInfo);
-          if (clinicProgress) {
-            console.log('回傳 clinicProgress:', clinicProgress);
-            return {
-              hospital,
-              department: clinicProgress.dept,
-              doctor: clinicProgress.doctor,
-              currentNumber: clinicProgress.currentSeq,
-              success: true,
-              timestamp: new Date().toISOString()
-            };
-          }
-        } catch (error) {
-          console.log(`❌ 嘗試 ${postUrl} 失敗: ${error.message}`);
-        }
-      }
-      // 若都沒抓到
-      console.log('⚠️ 無法找到叫號資訊，使用模擬資料');
-      return this.getMockData(hospital);
-    }
-
-    for (const url of urlsToTry) {
-      try {
-        console.log(` 嘗試使用 ScrapingBee 獲取 ${hospital} 即時資訊: ${url}`);
-        
-        // 先嘗試獲取完整 HTML 來分析頁面結構
-        const response = await axios.get(this.baseURL, {
-          params: {
-            api_key: this.apiKey,
-            url: url,
-            render_js: true,
-            wait: 8000,
-            country_code: 'tw',
-            premium_proxy: true
-          },
-          timeout: 30000
-        });
-
-        console.log(` 成功獲取 ${url} 的 HTML 內容`);
-        
-        // 取得 HTML 後
-        const html = response.data;
-
-        // 直接用 parseQueryInfo + extractClinicProgress
-        const queryInfo = this.parseQueryInfo(query);
-        const clinicProgress = this.extractClinicProgress(html, queryInfo);
-
-        if (clinicProgress) {
-          console.log('回傳 clinicProgress:', clinicProgress);
-          return {
-            hospital,
-            department: clinicProgress.dept,
-            doctor: clinicProgress.doctor,
-            currentNumber: clinicProgress.currentSeq,
-            success: true
-          };
-        }
-
+      const clinicProgress = this.extractClinicProgress(html, queryInfo);
+      if (clinicProgress) {
+        console.log('回傳 clinicProgress:', clinicProgress);
         return {
           hospital,
-          currentNumber: '無法取得',
-          timestamp: new Date().toISOString(),
-          nextNumber: '無法取得即時資料',
-          department: '無法取得',
-          source: 'scraping-bee-analyzed',
-          url: url,
+          department: clinicProgress.dept,
+          doctor: clinicProgress.doctor,
+          currentNumber: clinicProgress.currentSeq,
           success: true,
-          method: 'cheerio-analysis'
+          timestamp: new Date().toISOString()
         };
-      } catch (error) {
-        console.log(`❌ 嘗試 ${url} 失敗: ${error.message}`);
-        continue;
       }
+    } catch (error) {
+      console.log(`❌ 嘗試 ${url} 失敗: ${error.message}`);
     }
-
-    // 如果所有網址都失敗，返回模擬資料
+    // 若都沒抓到
     console.log('⚠️ 無法找到叫號資訊，使用模擬資料');
     return this.getMockData(hospital);
   }
