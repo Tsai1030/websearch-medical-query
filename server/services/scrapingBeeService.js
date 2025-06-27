@@ -152,8 +152,7 @@ class ScrapingBeeService {
           url: url,
           render_js: true,
           wait: 8000,
-          country_code: 'tw',
-          premium_proxy: true
+          country_code: 'tw'
         },
         timeout: 30000
       });

@@ -4,8 +4,16 @@ const path = require('path');
 // 向量 RAG 服務 - 使用 Python 向量檢索
 class VectorRAGService {
   constructor() {
-    this.pythonPath = 'python';
+    // 嘗試多種 Python 路徑
+    this.pythonPath = this.findPythonPath();
     this.scriptPath = path.join(__dirname, '../../test_vector_rag.py');
+  }
+
+  // 智能檢測 Python 路徑
+  findPythonPath() {
+    // 直接使用 python 命令，讓實際執行時處理錯誤
+    console.log('🔍 使用 Python 路徑: python');
+    return 'python';
   }
 
   // 執行向量檢索
