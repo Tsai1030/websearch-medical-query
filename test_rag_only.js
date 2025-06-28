@@ -81,4 +81,4 @@ if (require.main === module) {
   testRAGOnly().catch(console.error);
 }
 
-module.exports = { testRAGOnly }; 
+module.exports = { testRAGOnly };

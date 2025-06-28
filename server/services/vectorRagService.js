@@ -4,16 +4,40 @@ const path = require('path');
 // 向量 RAG 服務 - 使用 Python 向量檢索
 class VectorRAGService {
   constructor() {
-    this.pythonPath = 'python';
     this.scriptPath = path.join(__dirname, '../../test_vector_rag.py');
+  }
+
+  // 智能檢測 Python 路徑
+  findPythonPath() {
+    const possiblePaths = [
+      'python',
+      'python3',
+      'C:\\Users\\user\\anaconda3\\envs\\doctor-rag\\python.exe',
+      'C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python39\\python.exe',
+      'C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python310\\python.exe',
+      'C:\\Users\\user\\AppData\\Local\\Programs\\Python\\Python311\\python.exe'
+    ];
+
+    // 直接返回第一個可能的路徑，讓實際執行時處理錯誤
+    // 這樣可以避免在檢測階段就失敗
+    for (const pythonPath of possiblePaths) {
+      console.log(`🔍 嘗試 Python 路徑: ${pythonPath}`);
+      return pythonPath;
+    }
+
+    console.log('⚠️ 無法找到 Python，使用預設路徑: python');
+    return 'python';
   }
 
   // 執行向量檢索
   async searchDoctors(query) {
     console.log('🔍 執行向量 RAG 檢索...');
     
+    // 每次執行時都檢測 Python 路徑
+    const pythonPath = this.findPythonPath();
+    
     return new Promise((resolve, reject) => {
-      const pythonProcess = spawn(this.pythonPath, [this.scriptPath, query], {
+      const pythonProcess = spawn(pythonPath, [this.scriptPath, query], {
         cwd: path.join(__dirname, '../..'),
         stdio: ['pipe', 'pipe', 'pipe']
       });

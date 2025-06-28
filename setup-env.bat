@@ -25,6 +25,9 @@ REM 建立 .env 檔案
 echo # OpenAI API 設定 > server\.env
 echo OPENAI_API_KEY=your_openai_api_key_here >> server\.env
 echo. >> server\.env
+echo # ScrapingBee API 設定 (動態網頁抓取) >> server\.env
+echo SCRAPING_BEE_KEY=your_scraping_bee_api_key_here >> server\.env
+echo. >> server\.env
 echo # Serper API 設定 (Google 搜尋) >> server\.env
 echo SERPER_API_KEY=your_serper_api_key_here >> server\.env
 echo. >> server\.env
@@ -40,11 +43,13 @@ echo.
 echo 📝 請編輯 server\.env 檔案，填入您的 API 金鑰：
 echo.
 echo 1. 前往 https://platform.openai.com/ 取得 OpenAI API Key
-echo 2. 前往 https://serper.dev/ 取得 Serper API Key
-echo 3. 將金鑰填入對應的變數中
+echo 2. 前往 https://www.scrapingbee.com/ 取得 ScrapingBee API Key
+echo 3. 前往 https://serper.dev/ 取得 Serper API Key (可選)
+echo 4. 將金鑰填入對應的變數中
 echo.
 echo 範例：
 echo OPENAI_API_KEY=sk-1234567890abcdef...
+echo SCRAPING_BEE_KEY=your-scraping-bee-key-here
 echo SERPER_API_KEY=your-serper-key-here
 echo.
 echo 設定完成後，請重新執行 start.bat
