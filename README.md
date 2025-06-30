@@ -62,6 +62,18 @@ npm run dev
 - 後端: http://localhost:3001
 - 健康檢查: http://localhost:3001/health
 
+### 須進入資料夾
+```bash
+cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\client"
+npm run install-all
+npm run dev
+```
+```bash
+cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\server"
+npm run install-all
+npm run dev
+```
+
 ## 📋 查詢範例
 
 ### 醫師資訊查詢
