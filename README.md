@@ -65,12 +65,12 @@ npm run dev
 ### 須進入資料夾
 ```bash
 cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\client"
-npm run install-all
+npm install
 npm run dev
 ```
 ```bash
 cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\server"
-npm run install-all
+npm install
 npm run dev
 ```
 
