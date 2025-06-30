@@ -53,10 +53,26 @@ python test_vector_rag.py
 npm run dev
 ```
 
-### 4. 訪問系統
+### 4. 使用 ReAct Agent
+在後端運行後，可透過 POST `/api/query` 並傳入 `query` 欄位啟動 ReAct 推理流程。
+系統會依序輸出 Thought、Action、Observation，最後回傳診斷報告。
+
+### 5. 訪問系統
 - 前端: http://localhost:3000
 - 後端: http://localhost:3001
 - 健康檢查: http://localhost:3001/health
+
+### 須進入資料夾
+```bash
+cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\client"
+npm install
+npm run dev
+```
+```bash
+cd "C:\Users\USER\Desktop\websearch-medical-query-codex-react-agent\server"
+npm install
+npm run dev
+```
 
 ## 📋 查詢範例
 
@@ -93,6 +109,7 @@ npm run dev
 - `server/services/vectorRagService.js`: 向量 RAG 服務
 - `server/services/queryService.js`: 主要查詢處理服務
 - `server/services/scrapingBeeService.js`: 即時資訊服務
+- `server/services/reactAgentService.js`: ReAct 推理服務
 
 ### 資料庫
 - `doctors.json`: 醫師資料庫 (8 位心臟血管內科醫師)
@@ -118,6 +135,18 @@ npm run dev
 - **多種解析策略**: HTML 結構解析 + 內容分析
 - **超時控制**: 45 秒超時，避免長時間等待
 - **模擬資料**: 當無法取得即時資料時的備用方案
+
+## 🧠 ReAct Agent 模式
+
+新增 `server/services/reactAgentService.js`，使用 GPT 依循 **Thought → Action → Observation** 流程逐步推理。
+
+可用工具：
+1. `doctor_rag` – 醫師資料庫檢索
+2. `vector_rag` – 向量語義檢索
+3. `web_search` – Google 搜尋
+4. `finish` – 產生最終診斷報告
+
+執行查詢時，Agent 會根據使用者案例多次呼叫上述工具，最後給出診斷結果。
 
 ## 🧪 測試
 
