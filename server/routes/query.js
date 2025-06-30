@@ -1,5 +1,5 @@
 const express = require('express');
-const { processMedicalQuery } = require('../services/queryService');
+const { processMedicalQueryReact } = require('../services/reactAgentService');
 
 const router = express.Router();
 
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
     console.log(`🔍 收到查詢: ${query}`);
 
     // 處理查詢
-    const result = await processMedicalQuery(query.trim());
+    const result = await processMedicalQueryReact(query.trim());
 
     res.json({
       success: true,
